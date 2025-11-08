@@ -1,30 +1,29 @@
 # Multi LLM Chat
 
-*Automatically synced with your [v0.app](https://v0.app) deployments*
-
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/pradhankukiran-projects/v0-multi-llm-chat)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.app-black?style=for-the-badge)](https://v0.app/chat/iLfEXN414iQ)
+[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/pradhankukiran-projects/multi-llm-chat)
 
 ## Overview
 
-This repository will stay in sync with your deployed chats on [v0.app](https://v0.app).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.app](https://v0.app).
+A multi-language model chat application that allows you to interact with different LLMs in one unified interface.
 
 ## Deployment
 
 Your project is live at:
 
-**[https://vercel.com/pradhankukiran-projects/v0-multi-llm-chat](https://vercel.com/pradhankukiran-projects/v0-multi-llm-chat)**
+**[https://vercel.com/pradhankukiran-projects/multi-llm-chat](https://vercel.com/pradhankukiran-projects/multi-llm-chat)**
 
-## Build your app
+## Development
 
-Continue building your app on:
+To run the project locally:
 
-**[https://v0.app/chat/iLfEXN414iQ](https://v0.app/chat/iLfEXN414iQ)**
+```bash
+pnpm install
+pnpm dev
+```
 
 ## How It Works
 
-1. Create and modify your project using [v0.app](https://v0.app)
-2. Deploy your chats from the v0 interface
-3. Changes are automatically pushed to this repository
-4. Vercel deploys the latest version from this repository
+1. Make changes to your project locally
+2. Test your changes with `pnpm dev`
+3. Commit and push changes to this repository
+4. Vercel automatically deploys the latest version

@@ -1,111 +1,141 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { type NextRequest } from "next/server"
 
-async function queryOpenRouter(query: string): Promise<string> {
-  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-      "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-      "X-Title": "Multi-LLM Chat",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "openai/gpt-4o-mini",
+async function streamModel(
+  query: string,
+  modelId: string,
+  provider: string,
+  apiModel: string,
+  controller: ReadableStreamDefaultController,
+  encoder: TextEncoder
+) {
+  try {
+    const apiUrl = provider === "groq"
+      ? "https://api.groq.com/openai/v1/chat/completions"
+      : "https://api.cerebras.ai/v1/chat/completions"
+
+    const apiKey = provider === "groq"
+      ? process.env.GROQ_API_KEY
+      : process.env.CEREBRAS_API_KEY
+
+    const requestBody: any = {
+      model: apiModel,
       messages: [{ role: "user", content: query }],
       temperature: 0.7,
       max_tokens: 1000,
-    }),
-  })
+      stream: true,
+    }
 
-  if (!response.ok) {
-    throw new Error(`OpenRouter error: ${response.statusText}`)
+    // Add reasoning_effort for Qwen models
+    if (apiModel.toLowerCase().includes('qwen')) {
+      requestBody.reasoning_effort = "none"
+    }
+
+    const response = await fetch(apiUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(requestBody),
+    })
+
+    if (!response.ok) {
+      throw new Error(`${provider} error: ${response.statusText}`)
+    }
+
+    const reader = response.body?.getReader()
+    if (!reader) throw new Error("No response body")
+
+    const decoder = new TextDecoder()
+    let buffer = ""
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split("\n")
+      buffer = lines.pop() || ""
+
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          const data = line.slice(6)
+          if (data === "[DONE]") continue
+
+          try {
+            const parsed = JSON.parse(data)
+            let content = parsed.choices[0]?.delta?.content
+            if (content) {
+              // Remove thinking tags and their content
+              content = content.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '')
+              content = content.replace(/<\/thinking>/gi, '')
+              content = content.replace(/<thinking>/gi, '')
+
+              // Only send if there's content after filtering
+              if (content.trim()) {
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ modelId, content })}\n\n`))
+              }
+            }
+          } catch (e) {
+            // Skip malformed JSON
+          }
+        }
+      }
+    }
+
+    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ modelId, done: true })}\n\n`))
+  } catch (error: any) {
+    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ modelId, error: error.message })}\n\n`))
   }
-
-  const data = await response.json()
-  return data.choices[0].message.content
-}
-
-async function queryGroq(query: string): Promise<string> {
-  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "mixtral-8x7b-32768",
-      messages: [{ role: "user", content: query }],
-      temperature: 0.7,
-      max_tokens: 1000,
-    }),
-  })
-
-  if (!response.ok) {
-    throw new Error(`Groq error: ${response.statusText}`)
-  }
-
-  const data = await response.json()
-  return data.choices[0].message.content
-}
-
-async function queryCerebras(query: string): Promise<string> {
-  const response = await fetch("https://api.cerebras.ai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.CEREBRAS_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "llama-3.3-70b",
-      messages: [{ role: "user", content: query }],
-      temperature: 0.7,
-      max_tokens: 1000,
-    }),
-  })
-
-  if (!response.ok) {
-    throw new Error(`Cerebras error: ${response.statusText}`)
-  }
-
-  const data = await response.json()
-  return data.choices[0].message.content
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const { query } = await request.json()
+    const { query, models } = await request.json()
 
     if (!query || typeof query !== "string") {
-      return NextResponse.json({ error: "Invalid query" }, { status: 400 })
+      return new Response(JSON.stringify({ error: "Invalid query" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      })
     }
 
-    const [openRouterRes, groqRes, cerebrasRes] = await Promise.allSettled([
-      queryOpenRouter(query),
-      queryGroq(query),
-      queryCerebras(query),
-    ])
+    if (!models || !Array.isArray(models)) {
+      return new Response(JSON.stringify({ error: "Invalid models" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      })
+    }
 
-    const responses = [
-      {
-        model: "OpenRouter (GPT-4o Mini)",
-        response: openRouterRes.status === "fulfilled" ? openRouterRes.value : "Failed to get response",
-        error: openRouterRes.status === "rejected" ? openRouterRes.reason.message : undefined,
-      },
-      {
-        model: "Groq (Mixtral 8x7B)",
-        response: groqRes.status === "fulfilled" ? groqRes.value : "Failed to get response",
-        error: groqRes.status === "rejected" ? groqRes.reason.message : undefined,
-      },
-      {
-        model: "Cerebras (Llama 3.3 70B)",
-        response: cerebrasRes.status === "fulfilled" ? cerebrasRes.value : "Failed to get response",
-        error: cerebrasRes.status === "rejected" ? cerebrasRes.reason.message : undefined,
-      },
-    ]
+    const encoder = new TextEncoder()
 
-    return NextResponse.json({ responses })
+    const stream = new ReadableStream({
+      async start(controller) {
+        // Stream all 6 models in parallel
+        await Promise.all(
+          models.map(model =>
+            streamModel(query, model.id, model.provider, model.modelId, controller, encoder)
+          )
+        )
+
+        // Signal completion
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "complete" })}\n\n`))
+        controller.close()
+      },
+    })
+
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      },
+    })
   } catch (error) {
     console.error("API error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    })
   }
 }

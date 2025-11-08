@@ -13,6 +13,15 @@ interface LLMResponse {
   error?: string
 }
 
+const MODELS = [
+  { id: "cerebras-llama-3.1-8b", name: "Llama 3.1 8B", provider: "cerebras", modelId: "llama3.1-8b" },
+  { id: "cerebras-gpt-oss-120b", name: "GPT OSS 120B", provider: "cerebras", modelId: "gpt-oss-120b" },
+  { id: "cerebras-zai-glm-4.6", name: "Z.ai GLM 4.6", provider: "cerebras", modelId: "zai-glm-4.6" },
+  { id: "groq-llama-3.3-70b", name: "Llama 3.3 70B", provider: "groq", modelId: "llama-3.3-70b-versatile" },
+  { id: "groq-gpt-oss-20b", name: "GPT OSS 20B", provider: "groq", modelId: "openai/gpt-oss-20b" },
+  { id: "groq-qwen-3-32b", name: "Qwen 3 32B", provider: "groq", modelId: "qwen/qwen3-32b" },
+]
+
 export default function Home() {
   const [query, setQuery] = useState("")
   const [responses, setResponses] = useState<LLMResponse[]>([])
@@ -23,17 +32,86 @@ export default function Home() {
     if (!query.trim()) return
 
     setLoading(true)
-    setResponses([])
+
+    // Initialize responses with empty content for all 6 models
+    setResponses(MODELS.map(model => ({
+      model: model.name,
+      response: ""
+    })))
 
     try {
       const result = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({
+          query,
+          models: MODELS.map(m => ({ id: m.id, provider: m.provider, modelId: m.modelId }))
+        }),
       })
 
-      const data = await result.json()
-      setResponses(data.responses)
+      if (!result.ok) {
+        throw new Error("Failed to fetch responses")
+      }
+
+      const reader = result.body?.getReader()
+      if (!reader) throw new Error("No response body")
+
+      const decoder = new TextDecoder()
+      let buffer = ""
+
+      // Track responses by model ID
+      const responsesByModel: Record<string, string> = {}
+      MODELS.forEach(m => responsesByModel[m.id] = "")
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split("\n")
+        buffer = lines.pop() || ""
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            const data = line.slice(6)
+            try {
+              const parsed = JSON.parse(data)
+
+              if (parsed.type === "complete") {
+                setLoading(false)
+                continue
+              }
+
+              if (parsed.modelId && parsed.content) {
+                responsesByModel[parsed.modelId] += parsed.content
+
+                // Update responses array
+                setResponses(MODELS.map(model => ({
+                  model: model.name,
+                  response: responsesByModel[model.id],
+                  error: undefined,
+                })))
+              }
+
+              if (parsed.modelId && parsed.error) {
+                const modelIndex = MODELS.findIndex(m => m.id === parsed.modelId)
+                if (modelIndex !== -1) {
+                  setResponses((prev) => {
+                    const updated = [...prev]
+                    updated[modelIndex] = {
+                      ...updated[modelIndex],
+                      error: parsed.error,
+                    }
+                    return updated
+                  })
+                }
+              }
+            } catch (e) {
+              // Skip malformed JSON
+            }
+          }
+        }
+      }
     } catch (error) {
       console.error("Error:", error)
       setResponses([
@@ -43,7 +121,6 @@ export default function Home() {
           error: String(error),
         },
       ])
-    } finally {
       setLoading(false)
     }
   }
@@ -54,7 +131,7 @@ export default function Home() {
         {/* Header */}
         <div className="mb-12 border-l-4 border-white pl-6">
           <h1 className="text-5xl font-black text-white mb-2 tracking-tight">MULTI-LLM CHAT</h1>
-          <p className="text-base text-white font-bold uppercase letter-spacing-wide">OPENROUTER / GROQ / CEREBRAS</p>
+          <p className="text-base text-white font-bold uppercase letter-spacing-wide">LLAMA / GPT / QWEN / GLM</p>
         </div>
 
         {/* Input Section */}
@@ -86,14 +163,7 @@ export default function Home() {
         </div>
 
         {/* Responses Grid */}
-        {responses.length > 0 && <ChatGrid responses={responses} />}
-
-        {/* Empty State */}
-        {!loading && responses.length === 0 && (
-          <div className="text-center py-32 border-4 border-dashed border-white">
-            <p className="text-white text-xl font-black uppercase">QUERY ALL LLMS AT ONCE</p>
-          </div>
-        )}
+        <ChatGrid responses={responses} models={MODELS} />
       </div>
     </main>
   )
