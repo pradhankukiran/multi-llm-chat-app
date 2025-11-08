@@ -16,10 +16,12 @@ interface LLMResponse {
 const MODELS = [
   { id: "cerebras-llama-3.1-8b", name: "Llama 3.1 8B", provider: "cerebras", modelId: "llama3.1-8b" },
   { id: "cerebras-gpt-oss-120b", name: "GPT OSS 120B", provider: "cerebras", modelId: "gpt-oss-120b" },
-  { id: "cerebras-zai-glm-4.6", name: "Z.ai GLM 4.6", provider: "cerebras", modelId: "zai-glm-4.6" },
   { id: "groq-llama-3.3-70b", name: "Llama 3.3 70B", provider: "groq", modelId: "llama-3.3-70b-versatile" },
   { id: "groq-gpt-oss-20b", name: "GPT OSS 20B", provider: "groq", modelId: "openai/gpt-oss-20b" },
   { id: "groq-qwen-3-32b", name: "Qwen 3 32B", provider: "groq", modelId: "qwen/qwen3-32b" },
+  { id: "groq-llama-4-maverick-17b", name: "Llama 4 Maverick 17B", provider: "groq", modelId: "meta-llama/llama-4-maverick-17b-128e-instruct" },
+  { id: "groq-kimi-k2", name: "Kimi K2 Instruct", provider: "groq", modelId: "moonshotai/kimi-k2-instruct-0905" },
+  { id: "sambanova-deepseek-v3-0324", name: "DeepSeek V3", provider: "sambanova", modelId: "DeepSeek-V3-0324" },
 ]
 
 export default function Home() {
@@ -33,7 +35,7 @@ export default function Home() {
 
     setLoading(true)
 
-    // Initialize responses with empty content for all 6 models
+    // Initialize responses with empty content for all models
     setResponses(MODELS.map(model => ({
       model: model.name,
       response: ""
@@ -61,7 +63,7 @@ export default function Home() {
 
       // Track responses by model ID
       const responsesByModel: Record<string, string> = {}
-      MODELS.forEach(m => responsesByModel[m.id] = "")
+          MODELS.forEach(m => responsesByModel[m.id] = "")
 
       while (true) {
         const { done, value } = await reader.read()
@@ -79,21 +81,27 @@ export default function Home() {
 
               if (parsed.type === "complete") {
                 setLoading(false)
+                console.log("[chat] all models complete")
                 continue
               }
 
               if (parsed.modelId && parsed.content) {
+                const modelName = MODELS.find(m => m.id === parsed.modelId)?.name || parsed.modelId
+                console.log(`[chat] ${modelName} chunk:`, parsed.content)
+
                 responsesByModel[parsed.modelId] += parsed.content
 
                 // Update responses array
                 setResponses(MODELS.map(model => ({
                   model: model.name,
-                  response: responsesByModel[model.id],
+                  response: responsesByModel[model.id] ?? "",
                   error: undefined,
                 })))
               }
 
               if (parsed.modelId && parsed.error) {
+                const modelName = MODELS.find(m => m.id === parsed.modelId)?.name || parsed.modelId
+                console.error(`[chat] ${modelName} error:`, parsed.error)
                 const modelIndex = MODELS.findIndex(m => m.id === parsed.modelId)
                 if (modelIndex !== -1) {
                   setResponses((prev) => {
@@ -105,6 +113,11 @@ export default function Home() {
                     return updated
                   })
                 }
+              }
+
+              if (parsed.modelId && parsed.done) {
+                const modelName = MODELS.find(m => m.id === parsed.modelId)?.name || parsed.modelId
+                console.log(`[chat] ${modelName} stream complete`)
               }
             } catch (e) {
               // Skip malformed JSON

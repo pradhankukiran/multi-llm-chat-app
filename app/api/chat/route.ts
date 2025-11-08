@@ -9,13 +9,23 @@ async function streamModel(
   encoder: TextEncoder
 ) {
   try {
-    const apiUrl = provider === "groq"
-      ? "https://api.groq.com/openai/v1/chat/completions"
-      : "https://api.cerebras.ai/v1/chat/completions"
+    let apiUrl: string
+    let apiKey: string | undefined
 
-    const apiKey = provider === "groq"
-      ? process.env.GROQ_API_KEY
-      : process.env.CEREBRAS_API_KEY
+    if (provider === "groq") {
+      apiUrl = "https://api.groq.com/openai/v1/chat/completions"
+      apiKey = process.env.GROQ_API_KEY
+    } else if (provider === "sambanova") {
+      apiUrl = "https://api.sambanova.ai/v1/chat/completions"
+      apiKey = process.env.SAMBANOVA_API_KEY
+    } else {
+      apiUrl = "https://api.cerebras.ai/v1/chat/completions"
+      apiKey = process.env.CEREBRAS_API_KEY
+    }
+
+    if (!apiKey) {
+      throw new Error(`${provider} error: missing API key`)
+    }
 
     const requestBody: any = {
       model: apiModel,
@@ -30,6 +40,8 @@ async function streamModel(
       requestBody.reasoning_effort = "none"
     }
 
+    console.log(`[streamModel] ${modelId}: sending request to ${provider} (${apiModel})`)
+
     const response = await fetch(apiUrl, {
       method: "POST",
       headers: {
@@ -42,6 +54,7 @@ async function streamModel(
     if (!response.ok) {
       throw new Error(`${provider} error: ${response.statusText}`)
     }
+    console.log(`[streamModel] ${modelId}: response received (${response.status})`)
 
     const reader = response.body?.getReader()
     if (!reader) throw new Error("No response body")
@@ -64,16 +77,19 @@ async function streamModel(
 
           try {
             const parsed = JSON.parse(data)
-            let content = parsed.choices[0]?.delta?.content
-            if (content) {
-              // Remove thinking tags and their content
-              content = content.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '')
-              content = content.replace(/<\/thinking>/gi, '')
-              content = content.replace(/<thinking>/gi, '')
+            const rawContent = parsed.choices[0]?.delta?.content
+            if (rawContent) {
+              const withoutThinkingBlocks = rawContent.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '')
+              const strippedTags = withoutThinkingBlocks.replace(/<\/?thinking>/gi, '')
 
-              // Only send if there's content after filtering
-              if (content.trim()) {
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ modelId, content })}\n\n`))
+              const hasVisibleChars = strippedTags.replace(/\s+/g, '').length > 0
+              const fallbackContent = rawContent.replace(/<\/?thinking>/gi, '')
+              const contentToSend = hasVisibleChars ? strippedTags : fallbackContent
+
+              if (contentToSend.trim()) {
+                const snippet = contentToSend.length > 120 ? `${contentToSend.slice(0, 117)}...` : contentToSend
+                console.log(`[streamModel] ${modelId}: chunk -> ${snippet}`)
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ modelId, content: contentToSend })}\n\n`))
               }
             }
           } catch (e) {
@@ -83,8 +99,10 @@ async function streamModel(
       }
     }
 
+    console.log(`[streamModel] ${modelId}: stream complete`)
     controller.enqueue(encoder.encode(`data: ${JSON.stringify({ modelId, done: true })}\n\n`))
   } catch (error: any) {
+    console.error(`[streamModel] ${modelId}: error`, error)
     controller.enqueue(encoder.encode(`data: ${JSON.stringify({ modelId, error: error.message })}\n\n`))
   }
 }
