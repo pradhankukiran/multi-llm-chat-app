@@ -19,8 +19,8 @@ const MODELS = [
   { id: "groq-llama-3.3-70b", name: "Llama 3.3 70B", provider: "groq", modelId: "llama-3.3-70b-versatile" },
   { id: "groq-gpt-oss-20b", name: "GPT OSS 20B", provider: "groq", modelId: "openai/gpt-oss-20b" },
   { id: "groq-qwen-3-32b", name: "Qwen 3 32B", provider: "groq", modelId: "qwen/qwen3-32b" },
-  { id: "groq-llama-4-maverick-17b", name: "Llama 4 Maverick 17B", provider: "groq", modelId: "meta-llama/llama-4-maverick-17b-128e-instruct" },
-  { id: "groq-kimi-k2", name: "Kimi K2 Instruct", provider: "groq", modelId: "moonshotai/kimi-k2-instruct-0905" },
+  { id: "groq-llama-4-scout-17b", name: "Llama 4 Scout 17B", provider: "groq", modelId: "meta-llama/llama-4-scout-17b-16e-instruct" },
+  { id: "sambanova-minimax-m2.5", name: "MiniMax M2.5", provider: "sambanova", modelId: "MiniMax-M2.5" },
   { id: "sambanova-deepseek-v3-0324", name: "DeepSeek V3", provider: "sambanova", modelId: "DeepSeek-V3-0324" },
 ]
 
@@ -227,7 +227,7 @@ export default function Home() {
         {/* Header */}
         <div className="mb-12 border-l-4 border-black pl-6">
           <h1 className="text-5xl font-black text-black mb-2 tracking-tight">MULTI-LLM CHAT</h1>
-          <p className="text-base text-black font-bold uppercase letter-spacing-wide">LLAMA / GPT / QWEN / GLM / DEEPSEEK</p>
+          <p className="text-base text-black font-bold uppercase letter-spacing-wide">LLAMA / GPT / QWEN / DEEPSEEK / MINIMAX</p>
         </div>
 
         {/* Input Section */}
