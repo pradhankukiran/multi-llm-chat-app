@@ -6,14 +6,9 @@ import { useEffect, useRef, useState } from "react"
 import { Input } from "@/components/ui/input"
 import ChatGrid from "@/components/chat-grid"
 import { Check, Copy, Loader2, RotateCcw, X } from "lucide-react"
+import type { LLMResponse, Model } from "@/lib/types"
 
-interface LLMResponse {
-  model: string
-  response: string
-  error?: string
-}
-
-const MODELS = [
+const MODELS: Model[] = [
   { id: "cerebras-llama-3.1-8b", name: "Llama 3.1 8B", provider: "cerebras", modelId: "llama3.1-8b" },
   { id: "cerebras-gpt-oss-120b", name: "GPT OSS 120B", provider: "cerebras", modelId: "gpt-oss-120b" },
   { id: "groq-llama-3.3-70b", name: "Llama 3.3 70B", provider: "groq", modelId: "llama-3.3-70b-versatile" },

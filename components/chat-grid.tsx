@@ -2,20 +2,7 @@
 
 import { AlertCircle, Maximize2 } from "lucide-react"
 import { cn } from "@/lib/utils"
-
-interface LLMResponse {
-  model: string
-  response: string
-  error?: string
-  isPlaceholder?: boolean
-}
-
-interface Model {
-  id: string
-  name: string
-  provider: string
-  modelId: string
-}
+import type { LLMResponse, Model } from "@/lib/types"
 
 interface ChatGridProps {
   responses: LLMResponse[]
