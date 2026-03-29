@@ -1,8 +1,10 @@
 import type { Metadata } from 'next'
+import { JetBrains_Mono } from 'next/font/google'
 
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
+const jetbrainsMono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-jetbrains' })
 
 export const metadata: Metadata = {
   title: 'Multi LLM Chat',
@@ -19,7 +21,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`font-sans antialiased`}>
+      <body className={`${jetbrainsMono.variable} font-sans antialiased`}>
         {children}
         <Analytics />
       </body>
