@@ -1,5 +1,20 @@
 import { type NextRequest } from "next/server"
 
+interface ChatCompletionRequest {
+  model: string
+  messages: Array<{ role: string; content: string }>
+  temperature: number
+  max_tokens: number
+  stream: boolean
+  reasoning_effort?: string
+}
+
+interface ModelInput {
+  id: string
+  provider: string
+  modelId: string
+}
+
 async function streamModel(
   query: string,
   modelId: string,
@@ -27,17 +42,13 @@ async function streamModel(
       throw new Error(`${provider} error: missing API key`)
     }
 
-    const requestBody: any = {
+    const requestBody: ChatCompletionRequest = {
       model: apiModel,
       messages: [{ role: "user", content: query }],
       temperature: 0.7,
       max_tokens: 1000,
       stream: true,
-    }
-
-    // Add reasoning_effort for Qwen models
-    if (apiModel.toLowerCase().includes('qwen')) {
-      requestBody.reasoning_effort = "none"
+      ...(apiModel.toLowerCase().includes('qwen') && { reasoning_effort: "none" }),
     }
 
     const response = await fetch(apiUrl, {
@@ -103,10 +114,17 @@ async function streamModel(
 
 export async function POST(request: NextRequest) {
   try {
-    const { query, models } = await request.json()
+    const { query, models } = await request.json() as { query: unknown; models: unknown }
 
     if (!query || typeof query !== "string") {
       return new Response(JSON.stringify({ error: "Invalid query" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      })
+    }
+
+    if (query.length > 4000) {
+      return new Response(JSON.stringify({ error: "Query too long" }), {
         status: 400,
         headers: { "Content-Type": "application/json" },
       })
@@ -123,9 +141,8 @@ export async function POST(request: NextRequest) {
 
     const stream = new ReadableStream({
       async start(controller) {
-        // Stream all 6 models in parallel
         await Promise.all(
-          models.map(model =>
+          (models as ModelInput[]).map(model =>
             streamModel(query, model.id, model.provider, model.modelId, controller, encoder)
           )
         )
