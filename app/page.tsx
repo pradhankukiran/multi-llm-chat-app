@@ -100,11 +100,9 @@ export default function Home() {
               if (parsed.modelId && parsed.content) {
                 responsesByModel[parsed.modelId] += parsed.content
 
-                // Update responses array
-                setResponses(MODELS.map(model => ({
-                  model: model.name,
-                  response: responsesByModel[model.id] ?? "",
-                  error: undefined,
+                setResponses(prev => prev.map((item, i) => ({
+                  ...item,
+                  response: responsesByModel[MODELS[i].id] ?? "",
                 })))
               }
 
