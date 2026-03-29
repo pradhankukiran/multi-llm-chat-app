@@ -94,14 +94,10 @@ export default function Home() {
 
               if (parsed.type === "complete") {
                 setLoading(false)
-                console.log("[chat] all models complete")
                 continue
               }
 
               if (parsed.modelId && parsed.content) {
-                const modelName = MODELS.find(m => m.id === parsed.modelId)?.name || parsed.modelId
-                console.log(`[chat] ${modelName} chunk:`, parsed.content)
-
                 responsesByModel[parsed.modelId] += parsed.content
 
                 // Update responses array
@@ -113,8 +109,6 @@ export default function Home() {
               }
 
               if (parsed.modelId && parsed.error) {
-                const modelName = MODELS.find(m => m.id === parsed.modelId)?.name || parsed.modelId
-                console.error(`[chat] ${modelName} error:`, parsed.error)
                 const modelIndex = MODELS.findIndex(m => m.id === parsed.modelId)
                 if (modelIndex !== -1) {
                   setResponses((prev) => {
@@ -129,8 +123,7 @@ export default function Home() {
               }
 
               if (parsed.modelId && parsed.done) {
-                const modelName = MODELS.find(m => m.id === parsed.modelId)?.name || parsed.modelId
-                console.log(`[chat] ${modelName} stream complete`)
+                // model stream finished
               }
             } catch (e) {
               // Skip malformed JSON
@@ -141,13 +134,11 @@ export default function Home() {
       setLoading(false)
     } catch (error) {
       if ((error as DOMException).name === "AbortError") {
-        console.log("[chat] request aborted")
         if (requestControllerRef.current === controller) {
           requestControllerRef.current = null
         }
         return
       }
-      console.error("Error:", error)
       setResponses([
         {
           model: "Error",
@@ -204,10 +195,7 @@ export default function Home() {
     if (!textToCopy.trim()) return
 
     try {
-      if (!navigator?.clipboard) {
-        console.warn("Clipboard API not available")
-        return
-      }
+      if (!navigator?.clipboard) return
       await navigator.clipboard.writeText(textToCopy)
       setCopyStatus("copied")
       if (copyTimeoutRef.current) {
@@ -216,8 +204,8 @@ export default function Home() {
       copyTimeoutRef.current = setTimeout(() => {
         setCopyStatus("idle")
       }, 2000)
-    } catch (error) {
-      console.error("Failed to copy text", error)
+    } catch {
+      // clipboard write failed
     }
   }
 

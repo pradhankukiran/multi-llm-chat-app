@@ -40,8 +40,6 @@ async function streamModel(
       requestBody.reasoning_effort = "none"
     }
 
-    console.log(`[streamModel] ${modelId}: sending request to ${provider} (${apiModel})`)
-
     const response = await fetch(apiUrl, {
       method: "POST",
       headers: {
@@ -54,7 +52,6 @@ async function streamModel(
     if (!response.ok) {
       throw new Error(`${provider} error: ${response.statusText}`)
     }
-    console.log(`[streamModel] ${modelId}: response received (${response.status})`)
 
     const reader = response.body?.getReader()
     if (!reader) throw new Error("No response body")
@@ -87,8 +84,6 @@ async function streamModel(
               const contentToSend = hasVisibleChars ? strippedTags : fallbackContent
 
               if (contentToSend.trim()) {
-                const snippet = contentToSend.length > 120 ? `${contentToSend.slice(0, 117)}...` : contentToSend
-                console.log(`[streamModel] ${modelId}: chunk -> ${snippet}`)
                 controller.enqueue(encoder.encode(`data: ${JSON.stringify({ modelId, content: contentToSend })}\n\n`))
               }
             }
@@ -99,11 +94,10 @@ async function streamModel(
       }
     }
 
-    console.log(`[streamModel] ${modelId}: stream complete`)
     controller.enqueue(encoder.encode(`data: ${JSON.stringify({ modelId, done: true })}\n\n`))
-  } catch (error: any) {
-    console.error(`[streamModel] ${modelId}: error`, error)
-    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ modelId, error: error.message })}\n\n`))
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error)
+    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ modelId, error: message })}\n\n`))
   }
 }
 
@@ -150,7 +144,6 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error("API error:", error)
     return new Response(JSON.stringify({ error: "Internal server error" }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
