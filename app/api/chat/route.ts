@@ -48,7 +48,7 @@ async function streamModel(
       temperature: 0.7,
       max_tokens: 1000,
       stream: true,
-      ...(apiModel.toLowerCase().includes('qwen') && { reasoning_effort: "none" }),
+      ...(provider === "groq" && apiModel.toLowerCase().includes('qwen') && { reasoning_effort: "none" }),
     }
 
     const response = await fetch(apiUrl, {
