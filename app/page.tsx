@@ -166,8 +166,15 @@ export default function Home() {
       const previousOverflow = document.body.style.overflow
       document.body.style.overflow = "hidden"
       setCopyStatus("idle")
+
+      const handleEscape = (e: KeyboardEvent) => {
+        if (e.key === "Escape") setExpandedResponse(null)
+      }
+      document.addEventListener("keydown", handleEscape)
+
       return () => {
         document.body.style.overflow = previousOverflow
+        document.removeEventListener("keydown", handleEscape)
         if (copyTimeoutRef.current) {
           clearTimeout(copyTimeoutRef.current)
           copyTimeoutRef.current = null
@@ -219,7 +226,9 @@ export default function Home() {
         {/* Input Section */}
         <div className="bg-gray-900 border-4 border-white p-0 mb-8">
           <form onSubmit={handleSubmit} className="flex">
+            <label htmlFor="chat-query" className="sr-only">Enter your query</label>
             <Input
+              id="chat-query"
               type="text"
               placeholder="ENTER YOUR QUERY..."
               value={query}
@@ -263,10 +272,10 @@ export default function Home() {
         />
 
         {expandedResponse && (
-          <div className="fixed inset-0 z-50 bg-white/80 backdrop-blur-sm flex items-center justify-center px-4 py-8">
+          <div className="fixed inset-0 z-50 bg-white/80 backdrop-blur-sm flex items-center justify-center px-4 py-8" role="dialog" aria-modal="true" aria-labelledby="expanded-model-title">
             <div className="w-full max-w-4xl border-4 border-black bg-white text-black p-6 relative flex flex-col max-h-full">
               <div className="flex items-start justify-between gap-4 bg-gray-900 text-white px-4 py-3 -mx-4 -mt-4 mb-4 border-b-4 border-white">
-                <h2 className="text-2xl font-black">{expandedResponse.model}</h2>
+                <h2 id="expanded-model-title" className="text-2xl font-black">{expandedResponse.model}</h2>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
