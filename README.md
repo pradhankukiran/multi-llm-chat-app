@@ -35,12 +35,12 @@ Multi-LLM Chat is a unified interface that sends a single prompt to **8 large la
 | Provider | Model | Parameters |
 |----------|-------|------------|
 | **Cerebras** | Llama 3.1 8B | 8B |
-| **Cerebras** | GPT OSS 120B | 120B |
+| **Cerebras** | Qwen 3 235B | 235B (22B active) |
 | **Groq** | Llama 3.3 70B Versatile | 70B |
 | **Groq** | GPT OSS 20B | 20B |
 | **Groq** | Qwen 3 32B | 32B |
 | **Groq** | Llama 4 Scout 17B | 17B (16 experts) |
-| **SambaNova** | MiniMax M2.5 | &mdash; |
+| **SambaNova** | DeepSeek V3.1 | 671B (37B active) |
 | **SambaNova** | DeepSeek V3 | 671B (37B active) |
 
 ---
